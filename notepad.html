@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notepad++ v8.x Premium Clone with Document Map</title>
+    <style>
+        /* UIベース変数 */
+        :root {
+            --ui-bg: #f0f0f0;
+            --ui-menu-border: #d0d0d0;
+            --ui-text: #000000;
+            --ui-toolbar-bg: #f5f5f5;
+            --ui-btn-hover: #e5f1fb;
+            --ui-btn-hover-border: #0078d7;
+            --ui-tab-bg: #e1e1e1;
+            --ui-tab-active: #ffffff;
+            --ui-status-bg: #f0f0f0;
+            --ui-status-border: #c0c0c0;
+            --ui-dialog-bg: #f0f0f0;
+            --ui-dialog-border: #8e8f8f;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: var(--ui-bg);
+            color: var(--ui-text);
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* メニューバー */
+        .app-menu {
+            background-color: var(--ui-bg);
+            border-bottom: 1px solid var(--ui-menu-border);
+            padding: 2px 6px;
+            display: flex;
+            gap: 2px;
+            font-size: 11px;
+            color: var(--ui-text);
+            position: relative;
+            z-index: 10;
+        }
+        .menu-item {
+            position: relative;
+            padding: 2px 7px;
+            cursor: pointer;
+        }
+        .menu-item:hover {
+            background-color: var(--ui-btn-hover);
+            outline: 1px solid var(--ui-btn-hover-border);
+        }
+        .dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: #ffffff;
+            border: 1px solid var(--ui-menu-border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            min-width: 180px;
+            list-style: none;
+            padding: 4px 0;
+            margin: 0;
+            z-index: 100;
+        }
+        .menu-item:hover .dropdown {
+            display: block;
+        }
+        .dropdown li {
+            padding: 6px 15px;
+            color: #000000;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        .dropdown li:hover {
+            background-color: #e5f1fb;
+        }
+        .dropdown li.selected {
+            font-weight: bold;
+            background-color: #e5f1fb;
+        }
+        .dropdown .divider {
+            height: 1px;
+            background-color: var(--ui-menu-border);
+            margin: 4px 0;
+            padding: 0;
+        }
+
+        /* ツールバー */
+        .toolbar {
+            background-color: var(--ui-toolbar-bg);
+            border-bottom: 1px solid var(--ui-menu-border);
+            padding: 3px 6px;
+            display: flex;
+            gap: 2px;
+            align-items: center;
+        }
+        .toolbar button, .toolbar label {
+            background: none;
+            border: 1px solid transparent;
+            padding: 4px 6px;
+            cursor: pointer;
+            color: var(--ui-text);
+            font-size: 11px;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .toolbar button:hover, .toolbar label:hover {
+            background-color: var(--ui-btn-hover);
+            border: 1px solid var(--ui-btn-hover-border);
+        }
+        .toolbar select {
+            background-color: #ffffff;
+            border: 1px solid var(--ui-menu-border);
+            color: #000000;
+            font-size: 11px;
+            padding: 2px 4px;
+            outline: none;
+        }
+        .separator {
+            width: 1px;
+            height: 18px;
+            background-color: var(--ui-menu-border);
+            margin: 0 4px;
+        }
+
+        /* タブコンテナ */
+        .tab-container {
+            background-color: var(--ui-bg);
+            display: flex;
+            padding-top: 3px;
+            padding-left: 4px;
+            border-bottom: 1px solid var(--ui-menu-border);
+            overflow-x: auto;
+        }
+        .tab {
+            background-color: var(--ui-tab-bg);
+            border: 1px solid var(--ui-menu-border);
+            border-bottom: none;
+            padding: 3px 8px 3px 12px;
+            font-size: 11px;
+            border-top-left-radius: 3px;
+            border-top-right-radius: 3px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--ui-text);
+            opacity: 0.7;
+            cursor: pointer;
+            min-width: 80px;
+            max-width: 150px;
+            justify-content: space-between;
+            margin-right: 2px;
+        }
+        .tab.active {
+            background-color: var(--ui-tab-active);
+            border-bottom: 1px solid var(--ui-tab-active);
+            margin-bottom: -1px;
+            opacity: 1;
+            z-index: 2;
+        }
+        .tab-main-click {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow: hidden;
+            flex: 1;
+        }
+        .tab-icon {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #4ca64c;
+            flex-shrink: 0;
+        }
+        .tab.unsaved .tab-icon {
+            background-color: #ff4d4d;
+        }
+        .tab-text {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .tab-close-btn {
+            font-size: 11px;
+            color: #999;
+            padding: 0 4px;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        .tab-close-btn:hover {
+            background-color: #ff4d4d;
+            color: white;
+        }
+        .tab-edit-input {
+            font-size: 11px;
+            border: 1px solid var(--ui-btn-hover-border);
+            padding: 0 2px;
+            outline: none;
+            width: 100%;
+            display: none;
+        }
+
+        /* エディタエリア構造 */
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        .gutter {
+            padding: 6px 6px 6px 0;
+            text-align: right;
+            user-select: none;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            min-width: 38px;
+            white-space: pre;
+            box-sizing: border-box;
+        }
+        .editor-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        textarea, .highlight-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            resize: none;
+            outline: none;
+            padding: 6px 6px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            white-space: pre;
+            box-sizing: border-box;
+            margin: 0;
+            overflow-y: auto;
+        }
+
+        textarea {
+            background-color: transparent;
+            color: transparent;
+            z-index: 3;
+        }
+
+        .highlight-layer {
+            background-color: transparent;
+            z-index: 2;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        /* 矩形選択（マルチ仮想カーソル）表示用レイヤー */
+        .column-mode-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 4;
+            pointer-events: none;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            padding: 6px 6px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        .virtual-cursor {
+            position: absolute;
+            width: 1px;
+            height: 16px;
+            background-color: #000;
+            animation: blink 1s steps(2) infinite;
+        }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } }
+
+        .current-line-highlight {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 18.2px;
+            z-index: 1;
+            pointer-events: none;
+            display: none;
+        }
+
+        /* 🌟 新設：文書マップ (Document Map) */
+        .doc-map-container {
+            width: 110px;
+            background-color: #f0f0f0;
+            border-left: 1px solid var(--ui-menu-border);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            user-select: none;
+        }
+        .doc-map-header {
+            font-size: 10px;
+            background-color: #e1e1e1;
+            padding: 2px 4px;
+            text-align: center;
+            border-bottom: 1px solid var(--ui-menu-border);
+            font-weight: bold;
+        }
+        .doc-map-body {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .doc-map-canvas-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 3px; /* 極小サイズでコードを表現 */
+            line-height: 1.2;
+            padding: 4px;
+            box-sizing: border-box;
+            white-space: pre;
+            overflow: hidden;
+            opacity: 0.5;
+            transform-origin: top left;
+        }
+        /* 🌟 現在の表示領域枠（スライダー） */
+        .doc-map-visible-window {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 120, 215, 0.15);
+            border: 1px solid rgba(0, 120, 215, 0.4);
+            box-sizing: border-box;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* ダイアログ関係 */
+        .movable-dialog {
+            display: none;
+            position: absolute;
+            z-index: 1000;
+            background-color: var(--ui-dialog-bg);
+            border: 1px solid var(--ui-dialog-border);
+            box-shadow: 2px 2px 15px rgba(0,0,0,0.25);
+            border-radius: 3px;
+            font-size: 11px;
+            color: #000000;
+        }
+        .dialog-header {
+            padding: 6px 10px;
+            cursor: move;
+            background: linear-gradient(to bottom, #ffffff, #e1e1e1);
+            color: #000000;
+            border-bottom: 1px solid var(--ui-dialog-border);
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dialog-close { cursor: pointer; font-size: 14px; color: #777; }
+        .dialog-close:hover { color: #ff0000; }
+        .dialog-body { padding: 12px; }
+
+        #style-dialog { width: 500px; }
+        .style-config-grid { display: grid; grid-template-columns: 140px 1fr; gap: 15px; margin-top: 10px; }
+        .style-list-box { border: 1px solid var(--ui-menu-border); background: #ffffff; height: 180px; overflow-y: auto; }
+        .style-list-box div { padding: 4px 8px; cursor: pointer; }
+        .style-list-box div:hover { background-color: #e5f1fb; }
+        .style-list-box div.selected { background-color: #0078d7; color: #fff; }
+        .color-pickers { display: flex; flex-direction: column; gap: 10px; }
+        .picker-row { display: flex; justify-content: space-between; align-items: center; }
+        .picker-row input[type="color"] { border: 1px solid var(--ui-menu-border); padding: 0; width: 40px; height: 22px; cursor: pointer; }
+
+        #search-dialog { width: 440px; }
+        .dialog-tabs { display: flex; background-color: #e1e1e1; border-bottom: 1px solid var(--ui-dialog-border); padding-left: 5px; }
+        .dialog-tab { padding: 4px 12px; cursor: pointer; border: 1px solid transparent; border-bottom: none; margin-bottom: -1px; }
+        .dialog-tab.active { background-color: var(--ui-dialog-bg); border-color: var(--ui-dialog-border); font-weight: bold; border-top-left-radius: 3px; border-top-right-radius: 3px; }
+        .dialog-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; margin-bottom: 10px; }
+        .dialog-grid input[type="text"] { padding: 3px 5px; border: 1px solid var(--ui-dialog-border); outline: none; border-radius: 2px; }
+        .dialog-layout-main { display: flex; justify-content: space-between; gap: 10px; }
+        .dialog-options { display: flex; flex-direction: column; gap: 4px; border: 1px dashed var(--ui-dialog-border); padding: 8px; border-radius: 3px; flex: 1; }
+        .dialog-side-buttons { display: flex; flex-direction: column; gap: 4px; width: 110px; }
+        .dialog-side-buttons button { padding: 3px 0; background-color: #e1e1e1; border: 1px solid #acacac; color: #000000; cursor: pointer; border-radius: 3px; font-size: 11px; }
+        .dialog-side-buttons button:hover { background-color: #e5f1fb; border-color: #0078d7; }
+
+        /* ステータスバー */
+        .status-bar {
+            background-color: var(--ui-status-bg);
+            border-top: 1px solid var(--ui-status-border);
+            display: flex;
+            font-size: 11px;
+            height: 20px;
+            align-items: center;
+            color: #333;
+        }
+        .status-panel {
+            border-left: 1px solid var(--ui-status-border);
+            padding: 0 10px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+        }
+        .status-panel.flexible { flex: 1; border-left: none; }
+    </style>
+</head>
+<body>
+
+    <div class="app-menu">
+        <div class="menu-item">ファイル(F)
+            <ul class="dropdown">
+                <li onclick="createNewTab()">📄 新規作成</li>
+                <label for="open-file-menu" style="cursor:pointer;"><li>📂 開く...</li></label>
+                <input type="file" id="open-file-menu" style="display: none;" onchange="openFile(event)">
+                <li onclick="saveFile()">💾 上書き保存</li>
+                <div class="divider"></div>
+                <li onclick="closeCurrentTab()">❌ タブを閉じる</li>
+                <li onclick="printFile()">🖨️ 印刷...</li>
+            </ul>
+        </div>
+        <div class="menu-item">編集(E)
+            <ul class="dropdown">
+                <li onclick="executeEdit('upper')">🔠 大文字に変換</li>
+                <li onclick="executeEdit('lower')">🔡 小文字に変換</li>
+                <div class="divider"></div>
+                <li onclick="executeEdit('reverse')">🔄 選択行を反転</li>
+                <li onclick="executeEdit('sort')">🔀 選択行を昇順ソート</li>
+                <div class="divider"></div>
+                <li onclick="executeEdit('clear')">❌ すべて消去</li>
+            </ul>
+        </div>
+        <div class="menu-item">検索(S)
+            <ul class="dropdown">
+                <li onclick="openDialog('find')">🔍 検索 (Find)</li>
+                <li onclick="openDialog('replace')">🔄 置換 (Replace)</li>
+            </ul>
+        </div>
+        <div class="menu-item">表示(V)
+            <ul class="dropdown">
+                <li onclick="toggleDocMap()" id="menu-doc-map" class="selected">✓ 文書マップ (Document Map)</li>
+            </ul>
+        </div>
+        <div class="menu-item">言語(L)
+            <ul class="dropdown" id="language-dropdown">
+                <li onclick="setLanguage('text')" id="lang-text" class="selected">Normal Text (標準テキスト)</li>
+                <li onclick="setLanguage('html')" id="lang-html">HTML</li>
+                <li onclick="setLanguage('javascript')" id="lang-javascript">JavaScript</li>
+                <li onclick="setLanguage('css')" id="lang-css">CSS</li>
+            </ul>
+        </div>
+        <div class="menu-item">設定(T)
+            <ul class="dropdown">
+                <li onclick="openStyleDialog()">🎨 スタイル設定 (テーマ詳細)...</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <button onclick="createNewTab()">📄 新規</button>
+        <label for="open-file">📂 開く</label>
+        <input type="file" id="open-file" style="display: none;" onchange="openFile(event)">
+        <button onclick="saveFile()">💾 保存</button>
+        <div class="separator"></div>
+        <button onclick="openDialog('find')">🔍 検索・置換</button>
+        <button id="copy-path-btn" onclick="copyFilePath()" disabled style="opacity: 0.4; cursor: not-allowed;">📋 パスコピー</button>
+        <button onclick="toggleDocMap()">🗺️ 文書マップ切替</button>
+        <div class="separator"></div>
+        <label for="theme-template-select">テーマテンプレート:</label>
+        <select id="theme-template-select" onchange="applyThemeTemplate(this.value)">
+            <option value="notepad">Notepad++ Standard (標準)</option>
+            <option value="monokai">Monokai Dark (ダーク)</option>
+            <option value="solarized">Solarized Light (温かみのある白)</option>
+            <option value="github">GitHub Dark (モダン黒)</option>
+        </select>
+        <div class="separator"></div>
+        <label for="language-select">言語:</label>
+        <select id="language-select" onchange="setLanguage(this.value)">
+            <option value="text">Normal Text</option>
+            <option value="html">HTML</option>
+            <option value="javascript">JavaScript</option>
+            <option value="css">CSS</option>
+        </select>
+    </div>
+
+    <div class="tab-container" id="tab-container"></div>
+
+    <div class="container">
+        <div class="gutter" id="gutter">1</div>
+        <div class="editor-wrapper">
+            <div class="current-line-highlight" id="line-hl"></div>
+            <div class="highlight-layer" id="highlight-layer"></div>
+            <div class="column-mode-layer" id="column-layer"></div>
+            <textarea id="editor" spellcheck="false" oninput="handleInput()" onscroll="syncScroll()" onclick="updateLineHighlight()" onkeyup="updateLineHighlight()"></textarea>
+        </div>
+
+        <div class="doc-map-container" id="doc-map-container">
+            <div class="doc-map-header">文書マップ</div>
+            <div class="doc-map-body" id="doc-map-body" onclick="handleDocMapClick(event)">
+                <div class="doc-map-visible-window" id="doc-map-window"></div>
+                <div class="doc-map-canvas-layer" id="doc-map-canvas"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="style-dialog" class="movable-dialog">
+        <div id="style-dialog-header" class="dialog-header">
+            <span>スタイル設定 (テーマ詳細)</span>
+            <span class="dialog-close" onclick="closeStyleDialog()">×</span>
+        </div>
+        <div class="dialog-body">
+            <div style="font-weight: bold; margin-bottom: 5px;">カスタムカラー調整パネル</div>
+            <div class="style-config-grid">
+                <div class="style-list-box" id="style-part-list">
+                    <div class="selected" onclick="selectStylePart('editor-bg', this)">エディタ背景色</div>
+                    <div onclick="selectStylePart('text-color', this)">標準の文字色</div>
+                    <div onclick="selectStylePart('gutter-bg', this)">行番号の背景色</div>
+                    <div onclick="selectStylePart('gutter-text', this)">行番号の文字色</div>
+                    <div onclick="selectStylePart('current-line', this)">現在行ハイライト色</div>
+                    <div onclick="selectStylePart('hl-keyword', this)">構文：キーワード</div>
+                    <div onclick="selectStylePart('hl-string', this)">構文：文字列</div>
+                    <div onclick="selectStylePart('hl-comment', this)">構文：コメント</div>
+                    <div onclick="selectStylePart('hl-number', this)">構文：数値</div>
+                </div>
+                <div class="color-pickers">
+                    <div class="picker-row">
+                        <span id="current-part-label">エディタ背景色:</span>
+                        <input type="color" id="style-color-picker" oninput="handleCustomColorChange(this.value)">
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: right; margin-top: 15px;">
+                <button onclick="closeStyleDialog()">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="search-dialog" class="movable-dialog">
+        <div id="search-dialog-header" class="dialog-header">
+            <span id="dialog-title-text">検索</span>
+            <span class="dialog-close" onclick="closeDialog()">×</span>
+        </div>
+        <div class="dialog-tabs">
+            <div id="tab-link-find" class="dialog-tab active" onclick="switchDialogTab('find')">検索</div>
+            <div id="tab-link-replace" class="dialog-tab" onclick="switchDialogTab('replace')">置換</div>
+        </div>
+        <div class="dialog-body">
+            <div class="dialog-grid">
+                <label for="search-find-val">検索文字列:</label>
+                <input type="text" id="search-find-val">
+                <label id="lbl-replace-val" for="search-replace-val" style="visibility: hidden;">置換文字列:</label>
+                <input type="text" id="search-replace-val" style="visibility: hidden;">
+            </div>
+            <div class="dialog-layout-main">
+                <div class="dialog-options">
+                    <label><input type="checkbox" id="opt-match-case"> 大文字/小文字を区別</label>
+                    <label><input type="checkbox" id="opt-regex"> 正規表現 (RegEx)</label>
+                </div>
+                <div class="dialog-side-buttons">
+                    <button onclick="doFindNext()">次を検索</button>
+                    <button id="btn-action-replace" onclick="doReplace()" style="display:none;">置換</button>
+                    <button onclick="doReplaceAll()">すべて置換</button>
+                    <button onclick="doCountHits()">📊 出現回数</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="status-panel flexible" id="path-info">Normal text file</div>
+        <div class="status-panel" id="ln-col">Ln: 1  Col: 1</div>
+        <div class="status-panel" id="char-count">length: 0</div>
+        <div class="status-panel" id="line-count">lines: 1</div>
+        <div class="status-panel" id="status-lang-panel">Language: Normal Text</div>
+        <div class="status-panel" id="status-encoding">Windows (CRLF) | UTF-8</div>
+    </div>
+
+    <script>
+        const editor = document.getElementById('editor');
+        const gutter = document.getElementById('gutter');
+        const charCount = document.getElementById('char-count');
+        const lineCount = document.getElementById('line-count');
+        const lnCol = document.getElementById('ln-col');
+        const pathInfo = document.getElementById('path-info');
+        const copyPathBtn = document.getElementById('copy-path-btn');
+        const lineHl = document.getElementById('line-hl');
+        const searchDialog = document.getElementById('search-dialog');
+        const styleDialog = document.getElementById('style-dialog');
+        const highlightLayer = document.getElementById('highlight-layer');
+        const columnLayer = document.getElementById('column-layer');
+        const languageSelect = document.getElementById('language-select');
+        const statusLangPanel = document.getElementById('status-lang-panel');
+        const themeTemplateSelect = document.getElementById('theme-template-select');
+        const styleColorPicker = document.getElementById('style-color-picker');
+        const currentPartLabel = document.getElementById('current-part-label');
+        const tabContainer = document.getElementById('tab-container');
+        
+        // 文書マップ要素
+        const docMapContainer = document.getElementById('doc-map-container');
+        const docMapCanvas = document.getElementById('doc-map-canvas');
+        const docMapWindow = document.getElementById('doc-map-window');
+
+        let tabs = [];
+        let activeTabId = null;
+        let tabIdCounter = 0;
+        let selectedStylePart = "editor-bg";
+        let lastSearchPos = 0;
+        let currentLanguage = "text";
+        let showDocMap = true;
+
+        /* ==========================================
+           🌟 新設：文書マップ (Document Map) ロジック
+           ========================================== */
+        function toggleDocMap() {
+            showDocMap = !showDocMap;
+            docMapContainer.style.display = showDocMap ? 'flex' : 'none';
+            document.getElementById('menu-doc-map').classList.toggle('selected', showDocMap);
+            if (showDocMap) updateDocMap();
+        }
+
+        function updateDocMap() {
+            if (!showDocMap) return;
+            // メインエディタのテキストをミニマップ層にコピー（エスケープ処理付き）
+            let text = editor.value;
+            docMapCanvas.textContent = text ? text : " ";
+            syncDocMapWindow();
+        }
+
+        function syncDocMapWindow() {
+            if (!showDocMap) return;
+            
+            const totalHeight = editor.scrollHeight;
+            const viewHeight = editor.clientHeight;
+            const scrollTop = editor.scrollTop;
+
+            if (totalHeight <= 0) return;
+
+            // 文書マップボディに対する割合の計算
+            const bodyHeight = document.getElementById('doc-map-body').clientHeight;
+            
+            // 枠の高さと位置をメインエディタのスクロール状況に比例させる
+            const windowHeight = Math.max(15, (viewHeight / totalHeight) * bodyHeight);
+            const windowTop = (scrollTop / totalHeight) * bodyHeight;
+
+            docMapWindow.style.height = `${windowHeight}px`;
+            docMapWindow.style.top = `${windowTop}px`;
+
+            // ミニマップ内のテキストもメインのスクロールに緩やかに追従させる処理
+            const canvasHeight = docMapCanvas.scrollHeight;
+            if (canvasHeight > bodyHeight) {
+                const canvasTop = - (scrollTop / totalHeight) * (canvasHeight - bodyHeight);
+                docMapCanvas.style.top = `${canvasTop}px`;
+            } else {
+                docMapCanvas.style.top = '0px';
+            }
+        }
+
+        function handleDocMapClick(e) {
+            const rect = document.getElementById('doc-map-body').getBoundingClientRect();
+            const clickY = e.clientY - rect.top;
+            const bodyHeight = rect.height;
+
+            const totalHeight = editor.scrollHeight;
+            // クリックした位置の割合から、メインエディタのジャンプ先スクロール位置を割り出す
+            const targetScrollTop = (clickY / bodyHeight) * totalHeight - (editor.clientHeight / 2);
+
+            editor.scrollTop = Math.max(0, Math.min(targetScrollTop, totalHeight - editor.clientHeight));
+            syncScroll();
+        }
+
+
+        /* ==========================================
+           矩形（縦列）選択・編集エンジン
+           ========================================== */
+        let isColumnMode = false;
+        let columnStartLine = 0;
+        let columnEndLine = 0;
+        let columnColIdx = 0;
+
+        editor.addEventListener('mousedown', function(e) {
+            if (e.altKey) {
+                e.preventDefault();
+                isColumnMode = true;
+                const pos = getCursorInfoFromClick(e);
+                columnStartLine = pos.line; columnEndLine = pos.line; columnColIdx = pos.col;
+                renderColumnSelection();
+            } else {
+                clearColumnMode();
+            }
+        });
+
+        editor.addEventListener('mousemove', function(e) {
+            if (isColumnMode && e.buttons === 1) {
+                const pos = getCursorInfoFromClick(e);
+                columnEndLine = pos.line;
+                renderColumnSelection();
+            }
+        });
+
+        function clearColumnMode() { isColumnMode = false; columnLayer.innerHTML = ""; }
+
+        function getCursorInfoFromClick(e) {
+            const rect = editor.getBoundingClientRect();
+            const x = e.clientX - rect.left - 6 + editor.scrollLeft;
+            const y = e.clientY - rect.top - 6 + editor.scrollTop;
+            return { line: Math.max(0, Math.floor(y / 18.2)), col: Math.max(0, Math.round(x / 7.7)) };
+        }
+
+        function renderColumnSelection() {
+            columnLayer.innerHTML = "";
+            const minLine = Math.min(columnStartLine, columnEndLine);
+            const maxLine = Math.max(columnStartLine, columnEndLine);
+            const totalLines = editor.value.split('\n').length;
+
+            for (let i = minLine; i <= Math.min(maxLine, totalLines - 1); i++) {
+                const cursorEl = document.createElement('div');
+                cursorEl.className = "virtual-cursor";
+                cursorEl.style.top = `${6 + (i * 18.2) - editor.scrollTop}px`;
+                cursorEl.style.left = `${6 + (columnColIdx * 7.7) - editor.scrollLeft}px`;
+                columnLayer.appendChild(cursorEl);
+            }
+        }
+
+        editor.addEventListener('keydown', function(e) {
+            if (!isColumnMode) return;
+            const lines = editor.value.split('\n');
+            const minLine = Math.min(columnStartLine, columnEndLine);
+            const maxLine = Math.max(columnStartLine, columnEndLine);
+
+            if (e.key === 'Escape' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                clearColumnMode(); return;
+            }
+            if (e.key === 'Backspace') {
+                e.preventDefault();
+                for (let i = minLine; i <= Math.min(maxLine, lines.length - 1); i++) {
+                    let ln = lines[i];
+                    if (columnColIdx > 0 && ln.length >= columnColIdx) {
+                        lines[i] = ln.substring(0, columnColIdx - 1) + ln.substring(columnColIdx);
+                    }
+                }
+                columnColIdx = Math.max(0, columnColIdx - 1);
+                editor.value = lines.join('\n'); finalizeColumnEdit(); return;
+            }
+            if (e.key.length === 1 && !e.ctrlKey && !e.altKey) {
+                e.preventDefault();
+                for (let i = minLine; i <= Math.min(maxLine, lines.length - 1); i++) {
+                    let ln = lines[i];
+                    if (ln.length < columnColIdx) ln = ln.padEnd(columnColIdx, ' ');
+                    lines[i] = ln.substring(0, columnColIdx) + e.key + ln.substring(columnColIdx);
+                }
+                columnColIdx++; editor.value = lines.join('\n'); finalizeColumnEdit();
+            }
+        });
+
+        function finalizeColumnEdit() {
+            handleInput(); renderColumnSelection();
+            const lines = editor.value.split('\n');
+            const minLine = Math.min(columnStartLine, columnEndLine);
+            let targetPos = 0;
+            for(let i=0; i<minLine; i++) { targetPos += lines[i].length + 1; }
+            targetPos += Math.min(columnColIdx, lines[minLine].length);
+            editor.setSelectionRange(targetPos, targetPos);
+        }
+
+
+        /* ==========================================
+           マルチタブ・セッションロジック
+           ========================================== */
+        function createNewTab(name = null, content = "", skipSave = false) {
+            tabIdCounter++;
+            const id = 'tab-' + tabIdCounter;
+            const tabName = name ? name : `new ${tabIdCounter}`;
+            
+            let initialLang = "text";
+            if (name) {
+                const ext = name.split('.').pop().toLowerCase();
+                if (ext === 'html' || ext === 'htm') initialLang = 'html';
+                else if (ext === 'js') initialLang = 'javascript';
+                else if (ext === 'css') initialLang = 'css';
+            }
+
+            const newTabObj = { id: id, name: tabName, content: content, language: initialLang, isUnsaved: false };
+            tabs.push(newTabObj);
+            renderTabsUI();
+            switchTab(id);
+            if (!skipSave) saveSessionToLocalStorage();
+        }
+
+        function renderTabsUI() {
+            tabContainer.innerHTML = "";
+            tabs.forEach(tab => {
+                const tabEl = document.createElement('div');
+                tabEl.className = `tab ${tab.id === activeTabId ? 'active' : ''} ${tab.isUnsaved ? 'unsaved' : ''}`;
+                tabEl.id = tab.id;
+                tabEl.innerHTML = `
+                    <div class="tab-main-click" onclick="switchTab('${tab.id}')" ondblclick="startRenameTab('${tab.id}', event)">
+                        <span class="tab-icon"></span>
+                        <span class="tab-text" id="text-${tab.id}">${tab.name}</span>
+                        <input type="text" class="tab-edit-input" id="input-${tab.id}" onblur="finishRenameTab('${tab.id}')" onkeydown="handleTabInputKey(event, '${tab.id}')">
+                    </div>
+                    <span class="tab-close-btn" onclick="closeTab('${tab.id}', event)">×</span>
+                `;
+                tabContainer.appendChild(tabEl);
+            });
+        }
+
+        function switchTab(id) {
+            if (activeTabId) {
+                const currentTab = tabs.find(t => t.id === activeTabId);
+                if (currentTab) currentTab.content = editor.value;
+            }
+            activeTabId = id;
+            const targetTab = tabs.find(t => t.id === id);
+            if (targetTab) {
+                editor.value = targetTab.content;
+                setLanguage(targetTab.language);
+                pathInfo.textContent = targetTab.name.includes('.') ? `Path: ${targetTab.name}` : targetTab.name;
+                copyPathBtn.disabled = !targetTab.name.includes('.');
+                copyPathBtn.style.opacity = targetTab.name.includes('.') ? "1" : "0.4";
+            }
+            clearColumnMode(); renderTabsUI(); updateEditor(); updateLineHighlight(); saveSessionToLocalStorage();
+        }
+
+        function closeTab(id, event) {
+            if (event) event.stopPropagation();
+            const targetTab = tabs.find(t => t.id === id);
+            if (targetTab && targetTab.isUnsaved) {
+                if (!confirm(`「${targetTab.name}」は変更されています。保存せずに閉じますか？`)) return;
+            }
+            const index = tabs.findIndex(t => t.id === id);
+            tabs = tabs.filter(t => t.id !== id);
+            if (tabs.length === 0) createNewTab();
+            else if (activeTabId === id) switchTab(tabs[index >= tabs.length ? tabs.length - 1 : index].id);
+            else { renderTabsUI(); saveSessionToLocalStorage(); }
+        }
+
+        function closeCurrentTab() { if (activeTabId) closeTab(activeTabId); }
+
+        function startRenameTab(id, event) {
+            event.stopPropagation();
+            const tText = document.getElementById(`text-${id}`); const tInput = document.getElementById(`input-${id}`);
+            tText.style.display = 'none'; tInput.style.display = 'inline-block';
+            tInput.value = tText.textContent; tInput.focus(); tInput.select();
+        }
+
+        function finishRenameTab(id) {
+            const tText = document.getElementById(`text-${id}`); const tInput = document.getElementById(`input-${id}`);
+            const newName = tInput.value.trim();
+            if (newName) {
+                const targetTab = tabs.find(t => t.id === id);
+                if (targetTab) {
+                    targetTab.name = newName;
+                    const ext = newName.split('.').pop().toLowerCase();
+                    if (ext === 'html' || ext === 'htm') targetTab.language = 'html';
+                    else if (ext === 'js') targetTab.language = 'javascript';
+                    else if (ext === 'css') targetTab.language = 'css';
+                    else targetTab.language = 'text';
+                    if (activeTabId === id) switchTab(id);
+                }
+            }
+            tInput.style.display = 'none'; tText.style.display = 'inline'; renderTabsUI(); saveSessionToLocalStorage();
+        }
+
+        function handleTabInputKey(e, id) {
+            if (e.key === 'Enter') finishRenameTab(id);
+            if (e.key === 'Escape') {
+                document.getElementById(`input-${id}`).style.display = 'none'; document.getElementById(`text-${id}`).style.display = 'inline';
+            }
+        }
+
+        function saveSessionToLocalStorage() {
+            if (activeTabId) { const currentTab = tabs.find(t => t.id === activeTabId); if (currentTab) currentTab.content = editor.value; }
+            localStorage.setItem('npp_premium_session', JSON.stringify({ tabs: tabs, activeTabId: activeTabId, tabIdCounter: tabIdCounter, currentStyle: currentStyle, showDocMap: showDocMap }));
+        }
+
+        function loadSessionFromLocalStorage() {
+            const raw = localStorage.getItem('npp_premium_session');
+            if (!raw) { createNewTab(); return; }
+            try {
+                const data = JSON.parse(raw);
+                tabs = data.tabs || []; activeTabId = data.activeTabId; tabIdCounter = data.tabIdCounter || 0;
+                if (data.currentStyle) { currentStyle = data.currentStyle; refreshEditorStyles(); }
+                if (data.showDocMap !== undefined && data.showDocMap !== showDocMap) toggleDocMap();
+                if (tabs.length === 0) createNewTab(); else { renderTabsUI(); switchTab(activeTabId || tabs[0].id); }
+            } catch(e) { createNewTab(); }
+        }
+
+
+        /* ==========================================
+           テーマ設定テンプレート定義
+           ========================================== */
+        const themeTemplates = {
+            notepad: {
+                'editor-bg': '#ffffff', 'text-color': '#000000', 'gutter-bg': '#f0f0f0', 'gutter-text': '#565656',
+                'current-line': '#e9f2fc', 'hl-keyword': '#0000ff', 'hl-string': '#a31515', 'hl-comment': '#008000', 'hl-number': '#098658'
+            },
+            monokai: {
+                'editor-bg': '#272822', 'text-color': '#f8f8f2', 'gutter-bg': '#2d2d2d', 'gutter-text': '#8f908a',
+                'current-line': '#3e3d32', 'hl-keyword': '#f92672', 'hl-string': '#e6db74', 'hl-comment': '#75715e', 'hl-number': '#ae81ff'
+            },
+            solarized: {
+                'editor-bg': '#fdf6e3', 'text-color': '#657b83', 'gutter-bg': '#eee8d5', 'gutter-text': '#93a1a1',
+                'current-line': '#eee8d5', 'hl-keyword': '#859900', 'hl-string': '#2aa198', 'hl-comment': '#93a1a1', 'hl-number': '#d33682'
+            },
+            github: {
+                'editor-bg': '#0d1117', 'text-color': '#c9d1d9', 'gutter-bg': '#161b22', 'gutter-text': '#8b949e',
+                'current-line': '#21262d', 'hl-keyword': '#ff7b72', 'hl-string': '#a5d6ff', 'hl-comment': '#8b949e', 'hl-number': '#79c0ff'
+            }
+        };
+
+        let currentStyle = JSON.parse(JSON.stringify(themeTemplates.notepad));
+
+        function applyThemeTemplate(templateKey) {
+            currentStyle = JSON.parse(JSON.stringify(themeTemplates[templateKey]));
+            themeTemplateSelect.value = templateKey; refreshEditorStyles(); updateStylePickerUI(); saveSessionToLocalStorage();
+        }
+
+        function openStyleDialog() { styleDialog.style.display = 'block'; styleDialog.style.top = '120px'; styleDialog.style.left = '200px'; updateStylePickerUI(); }
+        function closeStyleDialog() { styleDialog.style.display = 'none'; }
+
+        function selectStylePart(partKey, element) {
+            selectedStylePart = partKey;
+            document.querySelectorAll('#style-part-list div').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected'); currentPartLabel.textContent = element.textContent + ":"; updateStylePickerUI();
+        }
+        function updateStylePickerUI() { styleColorPicker.value = currentStyle[selectedStylePart]; }
+        function handleCustomColorChange(colorValue) { currentStyle[selectedStylePart] = colorValue; refreshEditorStyles(); saveSessionToLocalStorage(); }
+
+        function refreshEditorStyles() {
+            const container = document.querySelector('.container');
+            container.style.backgroundColor = currentStyle['editor-bg'];
+            editor.style.caretColor = currentStyle['text-color'];
+            highlightLayer.style.color = currentStyle['text-color'];
+            gutter.style.backgroundColor = currentStyle['gutter-bg'];
+            gutter.style.color = currentStyle['gutter-text'];
+            gutter.style.borderRight = `1px solid ${currentStyle['gutter-text']}44`;
+            lineHl.style.backgroundColor = currentStyle['current-line'];
+            
+            // 文書マップも現在のテーマカラーと同調させる
+            docMapContainer.style.backgroundColor = currentStyle['gutter-bg'];
+            docMapCanvas.style.color = currentStyle['text-color'];
+            
+            applySyntaxHighlighting();
+        }
+
+        /* ==========================================
+           コアインプット制御 & スクロール
+           ========================================== */
+        function handleInput() {
+            if (activeTabId) {
+                const currentTab = tabs.find(t => t.id === activeTabId);
+                if (currentTab && !currentTab.isUnsaved) { currentTab.isUnsaved = true; renderTabsUI(); }
+            }
+            updateEditor(); updateLineHighlight(); saveSessionToLocalStorage();
+        }
+
+        function updateEditor() {
+            const text = editor.value; const lines = text.split('\n');
+            gutter.textContent = Array.from({length: lines.length}, (_, i) => i + 1).join('\n') + '\n';
+            charCount.textContent = `length: ${text.length}`; lineCount.textContent = `lines: ${lines.length}`;
+            applySyntaxHighlighting();
+            updateDocMap(); // 文書マップの文字の並びを同期
+        }
+
+        function syncScroll() {
+            gutter.scrollTop = editor.scrollTop;
+            highlightLayer.scrollTop = editor.scrollTop; highlightLayer.scrollLeft = editor.scrollLeft;
+            if (isColumnMode) renderColumnSelection();
+            updateLineHighlight();
+            syncDocMapWindow(); // 文書マップのハイライト枠を同期
+        }
+
+        function updateLineHighlight() {
+            const text = editor.value; const selStart = editor.selectionStart;
+            const textBeforeCursor = text.substring(0, selStart); const lines = textBeforeCursor.split('\n');
+            lnCol.textContent = `Ln: ${lines.length}  Col: ${lines[lines.length - 1].length + 1}`;
+
+            const topPosition = 6 + ((lines.length - 1) * 18.2) - editor.scrollTop;
+            if (topPosition >= 0 && topPosition < editor.clientHeight) {
+                lineHl.style.top = `${topPosition}px`; lineHl.style.display = 'block';
+            } else { lineHl.style.display = 'none'; }
+        }
+
+        function setLanguage(lang) {
+            currentLanguage = lang; languageSelect.value = lang;
+            if (activeTabId) { const currentTab = tabs.find(t => t.id === activeTabId); if (currentTab) currentTab.language = lang; }
+            document.querySelectorAll('#language-dropdown li').forEach(id => id.classList.remove('selected'));
+            const targetMenu = document.getElementById(`lang-${lang}`); if (targetMenu) targetMenu.classList.add('selected');
+            const langNames = { text: "Normal Text", html: "HTML", javascript: "JavaScript", css: "CSS" };
+            statusLangPanel.textContent = `Language: ${langNames[lang] || lang}`;
+            applySyntaxHighlighting();
+        }
+
+        function applySyntaxHighlighting() {
+            let code = editor.value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            if (currentLanguage === "text") { highlightLayer.innerHTML = code; return; }
+            const span = (type, text) => `<span style="color: ${currentStyle[type]}; ${type==='hl-keyword'?'font-weight:bold;':''}">${text}</span>`;
+
+            if (currentLanguage === "javascript") {
+                const jsKeywords = /\b(break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|yield|let|static|enum|await)\b/g;
+                code = code.replace(/(["'`])(.*?)\1/g, span('hl-string', '$1$2$1'))
+                           .replace(jsKeywords, span('hl-keyword', '$1'))
+                           .replace(/\b(\d+)\b/g, span('hl-number', '$1'))
+                           .replace(/(\/\/.*)/g, span('hl-comment', '$1'));
+            } 
+            else if (currentLanguage === "html") {
+                code = code.replace(/(&lt;\/?[a-zA-Z0-9]+)(\s?)/g, span('hl-keyword', '$1') + '$2')
+                           .replace(/(\s[a-zA-Z-]+)=/g, ' ' + span('hl-number', '$1') + '=')
+                           .replace(/(["'])(.*?)\1/g, span('hl-string', '$1$2$1'))
+                           .replace(/(&lt;!--.*?--&gt;)/g, span('hl-comment', '$1'));
+            } 
+            else if (currentLanguage === "css") {
+                code = code.replace(/([a-zA-Z-]+)\s*:/g, span('hl-keyword', '$1') + ':')
+                           .replace(/:\s*([^;}\n]+)/g, ': ' + span('hl-string', '$1'))
+                           .replace(/(\/\*.*?\*\/)/g, span('hl-comment', '$1'))
+                           .replace(/\b(\d+(px|em|rem|%|ms|s)?)\b/g, span('hl-number', '$1'));
+            }
+            if (code.endsWith('\n')) code += ' ';
+            highlightLayer.innerHTML = code;
+        }
+
+        /* ==========================================
+           検索・置換 / 各種モーダルダイアログ
+           ========================================== */
+        function openDialog(mode) { searchDialog.style.display = 'block'; searchDialog.style.top = '120px'; searchDialog.style.left = '250px'; switchDialogTab(mode); }
+        function closeDialog() { searchDialog.style.display = 'none'; }
+        function switchDialogTab(mode) {
+            const isReplace = (mode === 'replace');
+            document.getElementById('tab-link-find').classList.toggle('active', !isReplace);
+            document.getElementById('tab-link-replace').classList.toggle('active', isReplace);
+            document.getElementById('dialog-title-text').textContent = isReplace ? '置換' : '検索';
+            document.getElementById('lbl-replace-val').style.visibility = isReplace ? 'visible' : 'hidden';
+            document.getElementById('search-replace-val').style.visibility = isReplace ? 'visible' : 'hidden';
+            document.getElementById('btn-action-replace').style.display = isReplace ? 'block' : 'none';
+            document.getElementById('search-find-val').focus();
+        }
+
+        function setupDraggable(elmnt) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            document.getElementById(elmnt.id + "-header").onmousedown = function(e) {
+                if (e.target.className === 'dialog-close' || e.target.tagName === 'INPUT') return;
+                e.preventDefault(); pos3 = e.clientX; pos4 = e.clientY;
+                document.onmouseup = () => { document.onmouseup = null; document.onmousemove = null; };
+                document.onmousemove = function(e) {
+                    pos1 = pos3 - e.clientX; pos2 = pos4 - e.clientY; pos3 = e.clientX; pos4 = e.clientY;
+                    elmnt.style.top = (elmnt.offsetTop - pos2) + "px"; elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+                };
+            };
+        }
+        setupDraggable(searchDialog); setupDraggable(styleDialog);
+
+        function getSearchRegex() {
+            const findVal = document.getElementById('search-find-val').value; if (!findVal) return null;
+            const flags = document.getElementById('opt-match-case').checked ? 'g' : 'gi';
+            return new RegExp(document.getElementById('opt-regex').checked ? findVal : findVal.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), flags);
+        }
+
+        function doFindNext() {
+            const regex = getSearchRegex(); if (!regex) return;
+            const text = editor.value; regex.lastIndex = lastSearchPos;
+            let match = regex.exec(text); if (!match) { regex.lastIndex = 0; match = regex.exec(text); }
+            if (match) {
+                editor.focus(); editor.setSelectionRange(match.index, match.index + match[0].length);
+                lastSearchPos = match.index + match[0].length; updateLineHighlight();
+            } else alert("見つかりませんでした。");
+        }
+
+        function doReplace() {
+            const findVal = document.getElementById('search-find-val').value;
+            const replaceVal = document.getElementById('search-replace-val').value;
+            const start = editor.selectionStart; const end = editor.selectionEnd;
+            if (start !== end && editor.value.substring(start, end).toLowerCase() === findVal.toLowerCase()) {
+                editor.value = editor.value.substring(0, start) + replaceVal + editor.value.substring(end);
+                lastSearchPos = start + replaceVal.length; handleInput();
+            }
+            doFindNext();
+        }
+
+        function doReplaceAll() {
+            const regex = getSearchRegex(); if (!regex) return;
+            editor.value = editor.value.replace(regex, document.getElementById('search-replace-val').value);
+            handleInput(); alert("一括置換完了。");
+        }
+
+        function doCountHits() {
+            const regex = getSearchRegex(); if (!regex) return;
+            const matches = editor.value.match(regex); alert(`出現回数: ${matches ? matches.length : 0} 回`);
+        }
+
+        /* ==========================================
+           文字列一括加工・ファイルI/O処理
+           ========================================== */
+        function executeEdit(type) {
+            const start = editor.selectionStart; const end = editor.selectionEnd;
+            const hasSelection = start !== end; const targetText = hasSelection ? editor.value.substring(start, end) : editor.value;
+            let resultText = targetText;
+
+            if (type === 'upper') resultText = targetText.toUpperCase();
+            else if (type === 'lower') resultText = targetText.toLowerCase();
+            else if (type === 'clear') { if(confirm("消去しますか？")) { editor.value = ""; handleInput(); } return; }
+            else {
+                const lines = targetText.split('\n');
+                if (type === 'sort') lines.sort((a, b) => a.localeCompare(b, 'ja'));
+                if (type === 'reverse') lines.reverse();
+                resultText = lines.join('\n');
+            }
+            editor.value = hasSelection ? editor.value.substring(0, start) + resultText + editor.value.substring(end) : resultText;
+            handleInput(); editor.focus();
+        }
+
+        function openFile(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                createNewTab(file.name, new TextDecoder('utf-8').decode(new Uint8Array(e.target.result)));
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function saveFile() {
+            if (!activeTabId) return; const currentTab = tabs.find(t => t.id === activeTabId); if (!currentTab) return;
+            const nameToSave = currentTab.name.includes('.') ? currentTab.name : `${currentTab.name}.txt`;
+            const anchor = document.createElement('a');
+            anchor.download = nameToSave; anchor.href = window.URL.createObjectURL(new Blob([editor.value], { type: 'text/plain;charset=utf-8' }));
+            anchor.click(); currentTab.isUnsaved = false; if (!currentTab.name.includes('.')) currentTab.name = nameToSave;
+            switchTab(activeTabId);
+        }
+
+        function copyFilePath() {
+            if (!activeTabId) return; const currentTab = tabs.find(t => t.id === activeTabId);
+            if (currentTab && currentTab.name.includes('.')) { navigator.clipboard.writeText(currentTab.name); alert("ファイル名をコピーしました。"); }
+        }
+        function printFile() { window.print(); }
+
+        editor.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab' && !isColumnMode) {
+                e.preventDefault(); const start = this.selectionStart;
+                this.value = this.value.substring(0, start) + "    " + this.value.substring(this.selectionEnd);
+                this.selectionStart = this.selectionEnd = start + 4; handleInput();
+            }
+        });
+
+        editor.addEventListener('scroll', syncScroll);
+        window.addEventListener('resize', syncScroll);
+
+        // セッションのロード＆初期実行
+        loadSessionFromLocalStorage();
+    </script>
+</body>
+</html>
